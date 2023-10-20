@@ -1,0 +1,10 @@
+scripts/
+.DS_Store
+.env
+__pycache__/
+cache_directory/
+.vscode/
+.ipynb_checkpoints/
+all_tags.json
+all_tags.csv
+.ruff_cache

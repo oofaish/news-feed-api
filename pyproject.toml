@@ -1,0 +1,36 @@
+[tool.ruff]
+target-version = "py311"
+exclude = [
+    ".git",
+    "__pycache__",
+    "setup.py",
+    "cache_directory",
+    ".pytest_cache",
+    ".vscode",
+    ".cache",
+    ".pipenv",
+    "vendor",
+    "scripts",
+]
+select = [
+    "E",
+    "F",
+    "W",
+    "I001",
+]
+line-length = 120
+
+[tool.ruff.isort]
+lines-after-imports = 2
+lines-between-types = 1
+combine-as-imports = true
+
+[tool.black]
+line-length = 120
+
+exclude = '''
+/(
+    \.git
+  | \scripts
+)/
+'''

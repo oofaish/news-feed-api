@@ -1,0 +1,24 @@
+[requires]
+python_version = "3.11"
+
+[packages]
+Flask = "*"
+feedparser = "*"
+python-dateutil = "*"
+scikit-learn = "*"
+numpy = "*"
+openai = "*"
+beautifulsoup4 = "*"
+supabase = "*"
+
+[dev-packages]
+matplotlib = "*"
+jupyterlab = "*"
+notebook = "*"
+joblib = "*"
+ruff = "*"
+pyright = "*"
+bandit = "*"
+pytest = "*"
+black = "*"
+pre-commit = "*"
