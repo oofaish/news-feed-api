@@ -40,11 +40,13 @@ RUN chown -R appuser /app
 COPY Pipfile Pipfile.lock /app/
 RUN pip install pipenv && pipenv install --deploy --system
 
-# Switch to the non-privileged user to run the application.
-USER appuser
 
 # Copy the source code into the container.
 COPY . /app/
+RUN chown -R appuser /app
+
+# Switch to the non-privileged user to run the application.
+USER appuser
 
 # Run the application.
 CMD python main.py
