@@ -11,9 +11,23 @@ from utils import ARTICLE_TABLE, FEED_TABLE, TAG_TABLE, SetupClient, chunk_list,
 
 
 memory = Memory("cache_directory", verbose=0)
+cache_expiry_seconds = int(os.environ.get("JOBLIB_CACHE_EXPIRY")) if os.environ.get("JOBLIB_CACHE_EXPIRY") else 0
 
 
-@memory.cache(cache_validation_callback=expires_after(seconds=int(os.environ.get("JOBLIB_CACHE_EXPIRY"))))
+def conditional_decorator(flag, decorator, *args, **kwargs):
+    def wrapper(func):
+        if flag != 0:
+            return decorator(*args, **kwargs)(func)
+        return func
+
+    return wrapper
+
+
+@conditional_decorator(
+    cache_expiry_seconds,
+    memory.cache,
+    cache_validation_callback=expires_after(seconds=cache_expiry_seconds),
+)
 def get_feed(feed_url):
     print(f"Hitting API: {feed_url}")
     feed = feedparser.parse(feed_url)
