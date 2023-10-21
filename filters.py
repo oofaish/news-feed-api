@@ -105,7 +105,7 @@ def update_rows(entries):
     """
     client = get_authenticated_client()
     so_far = 0
-    for chunk in chunk_list(entries[:10], 50):
+    for chunk in chunk_list(entries, 50):
         so_far += len(chunk)
         print(f"{so_far}/{len(entries)}")
         client.rpc("update_articles_with_agent_results", {"data": chunk}).execute()
