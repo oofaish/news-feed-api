@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from utils import extract_text_from_p_tags, remove_query_string
 
@@ -79,12 +79,14 @@ def ensure_fields(entry: dict[str, Any]) -> dict[str, Any]:
     return required_format
 
 
-def process(entry: dict[str, Any]) -> dict[str, Any]:
+def process(title: Optional[str], entry: dict[str, Any]) -> dict[str, Any]:
     if "wsj.com" in entry["link"] or "ft.com" in entry["link"] or "wsj_articletype" in entry:
         result = wsj_and_ft_parser(entry)
     elif "guardian." in entry["link"] or "nytimes.com" in entry["link"]:
         result = guardian_and_nyt_parser(entry)
     else:
         raise ValueError(f"Unexpected link {entry['link']}")
+
+    # TODO add the title to the result
 
     return ensure_fields(result)

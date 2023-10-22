@@ -1,6 +1,7 @@
+import datetime
 import os
 
-from typing import Any
+from typing import Any, Optional
 
 import feedparser
 
@@ -34,15 +35,17 @@ def get_feed(feed_url):
     return feed
 
 
-def process_feed(feed):
+def process_feed(title: Optional[str], feed):
     for entry in feed.entries:
-        yield process(entry)
+        # dont bother with articles more than 5 days old
+        if entry["published_parsed"] > (datetime.datetime.now() - datetime.timedelta(days=5)).timetuple():
+            yield process(title, entry)
 
 
 def get_all_feed_urls():
     client = get_authenticated_client()
-    active_feeds = client.table(FEED_TABLE).select("url").eq("enabled", True).execute()
-    feeds = [row["url"] for row in active_feeds.data]
+    active_feeds = client.table(FEED_TABLE).select("title,url").eq("enabled", True).execute()
+    feeds = [(row["title"], row["url"]) for row in active_feeds.data]
     return feeds
 
 
@@ -50,9 +53,9 @@ def process_all_feeds():
     all_entries = []
     seen_links = set()
     feed_urls = get_all_feed_urls()
-    for feed_url in feed_urls:
+    for title, feed_url in feed_urls:
         feed = get_feed(feed_url)
-        for entry in process_feed(feed):
+        for entry in process_feed(title, feed):
             if entry["link"] not in seen_links:
                 seen_links.add(entry["link"])
                 all_entries.append(entry)

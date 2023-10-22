@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Union
+from typing import Optional
 
 from utils import ARTICLE_TABLE, TAG_TABLE, SetupClient, chunk_list, get_authenticated_client
 
@@ -24,75 +24,125 @@ def get_negative_tags():
     return negative_tags
 
 
-def is_disliked_by_tag(article_tags, negative_tags) -> Union[bool, str]:
-    if article_tags is None:
-        return False
+def get_positive_tags():
+    client = get_authenticated_client()
+    positive_tags_query = client.table(TAG_TABLE).select("*").gt("score", 0).execute()
 
+    positive_tags = [row["name"] for row in positive_tags_query.data]
+
+    return positive_tags
+
+
+def is_marked_by_tag(article_tags, negative_tags, positive_tags) -> tuple[int, Optional[str]]:
+    if article_tags is None:
+        return 0, None
+
+    negative_tag = None
+    positive_tag = None
     for tag in article_tags:
         if tag in negative_tags:
-            return tag
+            negative_tag = tag
+        elif tag in positive_tags:
+            positive_tag = tag
 
-    return False
+    if negative_tag is not None and positive_tag is None:
+        return -10, negative_tag
+
+    if positive_tag is not None and negative_tag is None:
+        return 10, positive_tag
+
+    return 0, None
 
 
-def is_disliked_title_or_summary(title, summary, negative_tags) -> Union[bool, str]:
+def is_marked_title_or_summary(title, summary, negative_tags, positive_tags) -> tuple[int, Optional[str]]:
     if summary is None:
         summary = ""
 
+    negative_tag = None
+    positive_tag = None
     if title is not None:
+        if summary is not None:
+            search_text = title + summary
+        else:
+            search_text = title
+
+        search_text = search_text.title()
+
         for tag in negative_tags:
-            if tag in title or tag in summary:
-                return tag
+            if tag in search_text:
+                negative_tag = tag
+                break
+        for tag in positive_tags:
+            if tag in search_text:
+                positive_tag = tag
+                break
 
-    return False
+    if negative_tag is not None and positive_tag is None:
+        return -5, negative_tag
+
+    if positive_tag is not None and negative_tag is None:
+        return 5, positive_tag
+    return 0, None
 
 
-def run_filters():
+def run_filters(run_on_all_positives=False):
     # load all rows from supabase where agent is null
     client = get_authenticated_client()
-    query = client.table(ARTICLE_TABLE).select("*").is_("agent", "null").execute()
+    if run_on_all_positives:
+        query = client.table(ARTICLE_TABLE).select("*").neq("agent", "USER").gte("score", 0).execute()
+    else:
+        query = client.table(ARTICLE_TABLE).select("*").is_("agent", "null").execute()
+    # query = client.table(ARTICLE_TABLE).select("*").eq("id", 30936).execute()
 
     updated_rows = []
     negative_tags = get_negative_tags()
+    positive_tags = get_positive_tags()
     # now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S%z')
 
     for row in query.data:
         article_tags = row["tags"]
+        if row["agent"] is not None and row["agent"].lower() == "user":
+            raise ValueError(f"Something is wrong - about to update {row}")
 
-        if tag := is_disliked_by_tag(article_tags, negative_tags):
+        score, tag = is_marked_by_tag(article_tags, negative_tags, positive_tags)
+
+        if score != 0:
             updates = {
                 "agent": AgentType.TAG.value,
-                "score": -10,
+                "score": score,
                 "reason": tag,
                 "id": row["id"],
-                # 'updated_at': now,
             }
             updated_rows.append(updates)
+            continue
 
-        elif tag := is_disliked_title_or_summary(row["title"], row["summary"], negative_tags):
+        score, tag = is_marked_title_or_summary(row["title"], row["summary"], negative_tags, positive_tags)
+        if score != 0:
             updates = {
                 "agent": AgentType.TITLE.value,
-                "score": -5,
+                "score": score,
                 "reason": tag,
                 "id": row["id"],
                 # 'updated_at': now,
             }
             updated_rows.append(updates)
+            continue
             # row['agent'] = AgentType.TITLE.value
             # row['score'] = -5
             # updated_rows.append(row)
-        else:
-            updates = {
-                "agent": AgentType.NONE.value,
-                "score": row["score"],
-                "id": row["id"],
-                # 'reason': '',
-                # 'updated_at': now,
-            }
-            updated_rows.append(updates)
-            # row['agent'] = AgentType.NONE.value
-            # row['score'] = 0
-            # updated_rows.append(row)
+
+        updates = {
+            "agent": AgentType.NONE.value,
+            "score": score,
+            "id": row["id"],
+            # 'reason': '',
+            # 'updated_at': now,
+        }
+
+        updated_rows.append(updates)
+        # row['agent'] = AgentType.NONE.value
+        # row['score'] = 0
+        # updated_rows.append(row)
 
     return updated_rows
 
@@ -111,11 +161,11 @@ def update_rows(entries):
         client.rpc("update_articles_with_agent_results", {"data": chunk}).execute()
 
 
-def main():
-    entries = run_filters()
+def main(run_on_all_positives=False):
+    entries = run_filters(run_on_all_positives=run_on_all_positives)
     update_rows(entries)
 
 
 if __name__ == "__main__":
     with SetupClient():
-        main()
+        main(run_on_all_positives=False)
