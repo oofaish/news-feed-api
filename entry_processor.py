@@ -14,7 +14,7 @@ def wsj_and_ft_parser(entry: dict[str, Any]) -> dict[str, Any]:
     if "ft.com" in link:
         publication = "FT"
         if "tags" in entry and len(entry["tags"]):
-            raise ValueError(f"hmm - FT had {entry['tags']} for tags")
+            print(f"hmm - FT had {entry['tags']} for tags")
 
     elif "wsj.com" in link or "wsj_articletype" in entry:
         if "tags" in entry and len(entry["tags"]) > 2:
