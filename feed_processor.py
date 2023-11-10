@@ -39,7 +39,10 @@ def process_feed(title: Optional[str], feed):
     for entry in feed.entries:
         # dont bother with articles more than 5 days old
         if entry["published_parsed"] > (datetime.datetime.now() - datetime.timedelta(days=5)).timetuple():
-            yield process(title, entry)
+            try:
+                yield process(title, entry)
+            except Exception:
+                print(f"Error processing {entry['link']}")
 
 
 def get_all_feed_urls():
