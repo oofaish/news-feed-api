@@ -8,3 +8,5 @@ cache_directory/
 all_tags.json
 all_tags.csv
 .ruff_cache
+
+*.pickle

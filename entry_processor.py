@@ -1,6 +1,10 @@
+from logging import getLogger
 from typing import Any, Optional
 
 from utils import extract_text_from_p_tags, remove_query_string
+
+
+logger = getLogger(__name__)
 
 
 def wsj_and_ft_parser(entry: dict[str, Any]) -> dict[str, Any]:
@@ -14,7 +18,7 @@ def wsj_and_ft_parser(entry: dict[str, Any]) -> dict[str, Any]:
     if "ft.com" in link:
         publication = "FT"
         if "tags" in entry and len(entry["tags"]):
-            print(f"hmm - FT had {entry['tags']} for tags")
+            logger.info(f"hmm - FT had {entry['tags']} for tags")
 
     elif "wsj.com" in link or "wsj_articletype" in entry:
         if "tags" in entry and len(entry["tags"]) > 2:
@@ -50,7 +54,11 @@ def guardian_and_nyt_parser(entry: dict[str, Any]) -> dict[str, Any]:
     if tags := entry.get("tags"):
         tags = [x["term"].title() for x in tags]
 
-    if "media_content" in entry and len(entry["media_content"]) and "url" in entry["media_content"][0]:
+    if (
+        "media_content" in entry
+        and len(entry["media_content"])
+        and "url" in entry["media_content"][0]
+    ):
         media = entry["media_content"][0]["url"]
     else:
         media = None
@@ -80,7 +88,11 @@ def ensure_fields(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def process(title: Optional[str], entry: dict[str, Any]) -> dict[str, Any]:
-    if "wsj.com" in entry["link"] or "ft.com" in entry["link"] or "wsj_articletype" in entry:
+    if (
+        "wsj.com" in entry["link"]
+        or "ft.com" in entry["link"]
+        or "wsj_articletype" in entry
+    ):
         result = wsj_and_ft_parser(entry)
     elif "guardian." in entry["link"] or "nytimes.com" in entry["link"]:
         result = guardian_and_nyt_parser(entry)

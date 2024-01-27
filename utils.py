@@ -10,11 +10,16 @@ from supabase import Client, create_client
 ARTICLE_TABLE = "article"
 TAG_TABLE = "tag"
 FEED_TABLE = "feed"
+MODEL_TABLE = "model"
+
+bad_stuff = ["&raquo;", "&amp;"]
 
 
 def remove_query_string(uri):
     parsed_uri = urlparse(uri)
-    return urlunparse((parsed_uri.scheme, parsed_uri.netloc, parsed_uri.path, None, None, None))
+    return urlunparse(
+        (parsed_uri.scheme, parsed_uri.netloc, parsed_uri.path, None, None, None)
+    )
 
 
 def extract_text_from_p_tags(html: str) -> str:
@@ -53,7 +58,10 @@ def _get_authenticated_client():
         )
 
         authed_client.auth.sign_in_with_password(
-            {"email": os.environ.get("SUPABASE_ADMIN_USER"), "password": os.environ.get("SUPABASE_ADMIN_PASSWORD")}
+            {
+                "email": os.environ.get("SUPABASE_ADMIN_USER"),
+                "password": os.environ.get("SUPABASE_ADMIN_PASSWORD"),
+            }
         )
 
     return authed_client
