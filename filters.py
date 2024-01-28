@@ -1,10 +1,19 @@
 from enum import Enum
-from typing import Optional
-
-from utils import ARTICLE_TABLE, TAG_TABLE, SetupClient, chunk_list, get_authenticated_client
-
 
 # from datetime import datetime, timezone
+from logging import getLogger
+from typing import Optional
+
+from utils import (
+    ARTICLE_TABLE,
+    TAG_TABLE,
+    SetupClient,
+    chunk_list,
+    get_authenticated_client,
+)
+
+
+logger = getLogger(__name__)
 
 
 class AgentType(Enum):
@@ -33,7 +42,9 @@ def get_positive_tags():
     return positive_tags
 
 
-def is_marked_by_tag(article_tags, negative_tags, positive_tags) -> tuple[int, Optional[str]]:
+def is_marked_by_tag(
+    article_tags, negative_tags, positive_tags
+) -> tuple[int, Optional[str]]:
     if article_tags is None:
         return 0, None
 
@@ -54,7 +65,9 @@ def is_marked_by_tag(article_tags, negative_tags, positive_tags) -> tuple[int, O
     return 0, None
 
 
-def is_marked_title_or_summary(title, summary, negative_tags, positive_tags) -> tuple[int, Optional[str]]:
+def is_marked_title_or_summary(
+    title, summary, negative_tags, positive_tags
+) -> tuple[int, Optional[str]]:
     if summary is None:
         summary = ""
 
@@ -89,7 +102,13 @@ def run_filters(run_on_all_positives=False):
     # load all rows from supabase where agent is null
     client = get_authenticated_client()
     if run_on_all_positives:
-        query = client.table(ARTICLE_TABLE).select("*").neq("agent", "USER").gte("score", 0).execute()
+        query = (
+            client.table(ARTICLE_TABLE)
+            .select("*")
+            .neq("agent", "USER")
+            .gte("score", 0)
+            .execute()
+        )
     else:
         query = client.table(ARTICLE_TABLE).select("*").is_("agent", "null").execute()
     # query = client.table(ARTICLE_TABLE).select("*").eq("id", 30936).execute()
@@ -116,7 +135,9 @@ def run_filters(run_on_all_positives=False):
             updated_rows.append(updates)
             continue
 
-        score, tag = is_marked_title_or_summary(row["title"], row["summary"], negative_tags, positive_tags)
+        score, tag = is_marked_title_or_summary(
+            row["title"], row["summary"], negative_tags, positive_tags
+        )
         if score != 0:
             updates = {
                 "agent": AgentType.TITLE.value,
@@ -157,7 +178,7 @@ def update_rows(entries):
     so_far = 0
     for chunk in chunk_list(entries, 50):
         so_far += len(chunk)
-        print(f"{so_far}/{len(entries)}")
+        logger.info(f"{so_far}/{len(entries)}")
         client.rpc("update_articles_with_agent_results", {"data": chunk}).execute()
 
 

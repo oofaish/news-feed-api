@@ -10,6 +10,10 @@ numpy = "*"
 openai = "*"
 beautifulsoup4 = "*"
 supabase = "*"
+pandas = "*"
+bs4 = "*"
+tiktoken = "*"
+tenacity = "*"
 
 [dev-packages]
 matplotlib = "*"
