@@ -2,6 +2,7 @@ import textwrap as tr
 
 from typing import List, Optional
 
+
 try:
     import matplotlib.pyplot as plt
 except ImportError:
@@ -28,7 +29,7 @@ from tenacity import retry, stop_after_attempt, wait_random_exponential
 logger = getLogger(__name__)
 
 
-@retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
+@retry(wait=wait_random_exponential(min=5, max=20), stop=stop_after_attempt(6))
 def get_embedding(text: str, model="text-embedding-ada-002", **kwargs) -> List[float]:
     # replace newlines, which can negatively affect performance.
     text = text.replace("\n", " ")
@@ -38,7 +39,7 @@ def get_embedding(text: str, model="text-embedding-ada-002", **kwargs) -> List[f
     return response.data[0].embedding
 
 
-@retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
+@retry(wait=wait_random_exponential(min=5, max=20), stop=stop_after_attempt(6))
 async def aget_embedding(
     text: str, model="text-embedding-ada-002", **kwargs
 ) -> List[float]:
