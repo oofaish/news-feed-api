@@ -8,6 +8,7 @@ import feedparser
 
 from joblib import Memory, expires_after
 
+from embedding_utils import remove_html
 from entry_processor import process
 from utils import (
     ARTICLE_TABLE,
@@ -81,12 +82,16 @@ def process_all_feeds():
         for entry in process_feed(title, feed):
             is_bad = False
             for thing in bad_stuff:
-                if thing in str(entry["title"]) or thing in str(
-                    entry.get("summary", "")
-                ):
+                # just filter out from title for now as I am dropping
+                # stuff I shouldn't
+                if thing in str(entry["title"]):
                     is_bad = True
             if not is_bad and entry["link"] not in seen_links:
                 seen_links.add(entry["link"])
+                try:
+                    entry["summary"] = remove_html(entry["summary"])
+                except Exception:
+                    logger.exception("Failed to remove html from summary")
                 all_entries.append(entry)
 
     return all_entries

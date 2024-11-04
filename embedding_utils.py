@@ -29,10 +29,10 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 MAX_RECENT_ARTICLES = 200
-RECENT_HOURS = 12
+RECENT_HOURS = 24
 
-MAX_TITLE_SIZE = 200
-MAX_SIZE = 400
+MAX_TITLE_SIZE = 1000
+MAX_SIZE = 4000
 
 EMBEDDING_LENGTH = 1536
 
@@ -101,7 +101,7 @@ def get_short_summary(article) -> str:
 
 def get_combined(article) -> Optional[str]:
     for thing in bad_stuff:
-        if thing in str(article.title) or thing in str(article.summary):
+        if thing in str(article.title_short) or thing in str(article.summary_short):
             return None
     if len(article.summary_short) > 15:
         if article.title_short[:100] == article.summary_short[:100]:
@@ -275,7 +275,7 @@ def train_model(df: pd.DataFrame, split: bool = False) -> KNeighborsClassifier:
     """
     train the model on the data.
     """
-    knn = KNeighborsClassifier(n_neighbors=10)
+    knn = KNeighborsClassifier(n_neighbors=20)
     matrix = df.embedding.to_list()
     scores = df.score.to_list()
 
@@ -324,23 +324,26 @@ filename = "model.pickle"
 downloaded_filename = "downloaded_model.pickle"
 
 
-def save_model_to_database(model: KNeighborsClassifier) -> None:
+def save_model_to_database(
+    model: KNeighborsClassifier, save_to_db: bool = False
+) -> None:
     """
     save the model to the database.
     """
     with open(filename, "wb") as f:
         pickle.dump(model, f)
-    with open(filename, "rb") as f:
-        client = get_authenticated_client()
-        client.storage.from_("models").upload(
-            file=f,
-            path=filename,
-            file_options={"content-type": "application/octet-stream"},
-        )
+    if save_to_db:
+        with open(filename, "rb") as f:
+            client = get_authenticated_client()
+            client.storage.from_("models").upload(
+                file=f,
+                path=filename,
+                file_options={"content-type": "application/octet-stream"},
+            )
     logger.info("done saving model")
 
 
-def get_model_from_database(local=False) -> Optional[KNeighborsClassifier]:
+def get_model_from_database(local=True) -> Optional[KNeighborsClassifier]:
     """
     get the latest model from table sorted by created_at
     if use is TRUE, return the model
@@ -367,7 +370,8 @@ if __name__ == "__main__":
     this will hit openAI API - be aware
     """
     get_embeddings_for_classified_models = False
-    train_and_save_model = False
+    train_and_save_model = True
+    generate_embeddings = False
     with SetupClient():
         if get_embeddings_for_classified_models:
             done = False
@@ -387,10 +391,11 @@ if __name__ == "__main__":
             save_model_to_database(knn)
             knn2 = get_model_from_database()
 
-        df = get_recent_articles_with_no_embedding()
-        if df is not None and len(df):
-            articles_with_embeddings = get_embeddings(
-                df,
-                dry_run=False,
-            )
-            save_embeddings_to_db(articles_with_embeddings)
+        if generate_embeddings:
+            df = get_recent_articles_with_no_embedding()
+            if df is not None and len(df):
+                articles_with_embeddings = get_embeddings(
+                    df,
+                    dry_run=False,
+                )
+                save_embeddings_to_db(articles_with_embeddings)
