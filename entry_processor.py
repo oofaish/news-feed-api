@@ -54,11 +54,7 @@ def guardian_and_nyt_parser(entry: dict[str, Any]) -> dict[str, Any]:
     if tags := entry.get("tags"):
         tags = [x["term"].title() for x in tags]
 
-    if (
-        "media_content" in entry
-        and len(entry["media_content"])
-        and "url" in entry["media_content"][0]
-    ):
+    if "media_content" in entry and len(entry["media_content"]) and "url" in entry["media_content"][0]:
         media = entry["media_content"][0]["url"]
     else:
         media = None
@@ -88,11 +84,7 @@ def ensure_fields(entry: dict[str, Any]) -> dict[str, Any]:
 
 
 def process(title: Optional[str], entry: dict[str, Any]) -> dict[str, Any]:
-    if (
-        "wsj.com" in entry["link"]
-        or "ft.com" in entry["link"]
-        or "wsj_articletype" in entry
-    ):
+    if "wsj.com" in entry["link"] or "ft.com" in entry["link"] or "wsj_articletype" in entry:
         result = wsj_and_ft_parser(entry)
     elif "guardian." in entry["link"] or "nytimes.com" in entry["link"]:
         result = guardian_and_nyt_parser(entry)

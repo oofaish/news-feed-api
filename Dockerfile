@@ -37,8 +37,8 @@ RUN chown -R appuser /app
 # RUN --mount=type=cache,target=/root/.cache/pip \
 #     --mount=type=bind,source=requirements.txt,target=requirements.txt \
 #     python -m pip install -r requirements.txt
-COPY Pipfile Pipfile.lock /app/
-RUN pip install pipenv && pipenv install --deploy --system
+COPY requirements.txt /app/
+RUN pip install -r requirements.txt
 
 
 # Copy the source code into the container.

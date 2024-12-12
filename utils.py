@@ -17,9 +17,7 @@ bad_stuff = ["&raquo;", "&amp;"]
 
 def remove_query_string(uri):
     parsed_uri = urlparse(uri)
-    return urlunparse(
-        (parsed_uri.scheme, parsed_uri.netloc, parsed_uri.path, None, None, None)
-    )
+    return urlunparse((parsed_uri.scheme, parsed_uri.netloc, parsed_uri.path, None, None, None))
 
 
 def extract_text_from_p_tags(html: str) -> str:

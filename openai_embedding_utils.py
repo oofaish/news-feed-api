@@ -40,21 +40,15 @@ def get_embedding(text: str, model="text-embedding-ada-002", **kwargs) -> List[f
 
 
 @retry(wait=wait_random_exponential(min=5, max=20), stop=stop_after_attempt(6))
-async def aget_embedding(
-    text: str, model="text-embedding-ada-002", **kwargs
-) -> List[float]:
+async def aget_embedding(text: str, model="text-embedding-ada-002", **kwargs) -> List[float]:
     # replace newlines, which can negatively affect performance.
     text = text.replace("\n", " ")
 
-    return (await openai.embeddings.create(input=[text], model=model, **kwargs))[
-        "data"
-    ][0]["embedding"]
+    return (await openai.embeddings.create(input=[text], model=model, **kwargs))["data"][0]["embedding"]
 
 
 @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
-def get_embeddings(
-    list_of_text: List[str], model="text-similarity-babbage-001", **kwargs
-) -> List[List[float]]:
+def get_embeddings(list_of_text: List[str], model="text-similarity-babbage-001", **kwargs) -> List[List[float]]:
     assert len(list_of_text) <= 2048, "The batch size should not be larger than 2048."
 
     # replace newlines, which can negatively affect performance.
@@ -65,17 +59,13 @@ def get_embeddings(
 
 
 @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))
-async def aget_embeddings(
-    list_of_text: List[str], model="text-similarity-babbage-001", **kwargs
-) -> List[List[float]]:
+async def aget_embeddings(list_of_text: List[str], model="text-similarity-babbage-001", **kwargs) -> List[List[float]]:
     assert len(list_of_text) <= 2048, "The batch size should not be larger than 2048."
 
     # replace newlines, which can negatively affect performance.
     list_of_text = [text.replace("\n", " ") for text in list_of_text]
 
-    data = (
-        await openai.embeddings.create(input=list_of_text, model=model, **kwargs)
-    ).data
+    data = (await openai.embeddings.create(input=list_of_text, model=model, **kwargs)).data
     return [d.embedding for d in data]
 
 
@@ -83,18 +73,14 @@ def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 
-def plot_multiclass_precision_recall(
-    y_score, y_true_untransformed, class_list, classifier_name
-):
+def plot_multiclass_precision_recall(y_score, y_true_untransformed, class_list, classifier_name):
     """
     Precision-Recall plotting for a multiclass problem. It plots average precision-recall, per class precision recall and reference f1 contours.
 
     Code slightly modified, but heavily based on https://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html
     """
     n_classes = len(class_list)
-    y_true = pd.concat(
-        [(y_true_untransformed == class_list[i]) for i in range(n_classes)], axis=1
-    ).values
+    y_true = pd.concat([(y_true_untransformed == class_list[i]) for i in range(n_classes)], axis=1).values
 
     # For each class
     precision = dict()
@@ -105,16 +91,9 @@ def plot_multiclass_precision_recall(
         average_precision[i] = average_precision_score(y_true[:, i], y_score[:, i])
 
     # A "micro-average": quantifying score on all classes jointly
-    precision_micro, recall_micro, _ = precision_recall_curve(
-        y_true.ravel(), y_score.ravel()
-    )
+    precision_micro, recall_micro, _ = precision_recall_curve(y_true.ravel(), y_score.ravel())
     average_precision_micro = average_precision_score(y_true, y_score, average="micro")
-    logger.info(
-        str(classifier_name)
-        + " - Average precision score over all classes: {0:0.2f}".format(
-            average_precision_micro
-        )
-    )
+    logger.info(str(classifier_name) + " - Average precision score over all classes: {0:0.2f}".format(average_precision_micro))
 
     # setup plot details
     plt.figure(figsize=(9, 10))
@@ -131,17 +110,12 @@ def plot_multiclass_precision_recall(
     labels.append("iso-f1 curves")
     (line,) = plt.plot(recall_micro, precision_micro, color="gold", lw=2)
     lines.append(line)
-    labels.append(
-        "average Precision-recall (auprc = {0:0.2f})" "".format(average_precision_micro)
-    )
+    labels.append("average Precision-recall (auprc = {0:0.2f})" "".format(average_precision_micro))
 
     for i in range(n_classes):
         (line,) = plt.plot(recall[i], precision[i], lw=2)
         lines.append(line)
-        labels.append(
-            "Precision-recall for class `{0}` (auprc = {1:0.2f})"
-            "".format(class_list[i], average_precision[i])
-        )
+        labels.append("Precision-recall for class `{0}` (auprc = {1:0.2f})" "".format(class_list[i], average_precision[i]))
 
     fig = plt.gcf()
     fig.subplots_adjust(bottom=0.25)
@@ -165,10 +139,7 @@ def distances_from_embeddings(
         "L2": spatial.distance.euclidean,
         "Linf": spatial.distance.chebyshev,
     }
-    distances = [
-        distance_metrics[distance_metric](query_embedding, embedding)
-        for embedding in embeddings
-    ]
+    distances = [distance_metrics[distance_metric](query_embedding, embedding) for embedding in embeddings]
     return distances
 
 
@@ -177,18 +148,14 @@ def indices_of_nearest_neighbors_from_distances(distances) -> np.ndarray:
     return np.argsort(distances)
 
 
-def pca_components_from_embeddings(
-    embeddings: List[List[float]], n_components=2
-) -> np.ndarray:
+def pca_components_from_embeddings(embeddings: List[List[float]], n_components=2) -> np.ndarray:
     """Return the PCA components of a list of embeddings."""
     pca = PCA(n_components=n_components)
     array_of_embeddings = np.array(embeddings)
     return pca.fit_transform(array_of_embeddings)
 
 
-def tsne_components_from_embeddings(
-    embeddings: List[List[float]], n_components=2, **kwargs
-) -> np.ndarray:
+def tsne_components_from_embeddings(embeddings: List[List[float]], n_components=2, **kwargs) -> np.ndarray:
     """Returns t-SNE components of a list of embeddings."""
     # use better defaults if not specified
     if "init" not in kwargs.keys():
@@ -216,9 +183,7 @@ def chart_from_components(
             x_title: components[:, 0],
             y_title: components[:, 1],
             "label": labels if labels else empty_list,
-            "string": ["<br>".join(tr.wrap(string, width=30)) for string in strings]
-            if strings
-            else empty_list,
+            "string": ["<br>".join(tr.wrap(string, width=30)) for string in strings] if strings else empty_list,
         }
     )
     chart = px.scatter(
@@ -251,9 +216,7 @@ def chart_from_components_3D(
             y_title: components[:, 1],
             z_title: components[:, 2],
             "label": labels if labels else empty_list,
-            "string": ["<br>".join(tr.wrap(string, width=30)) for string in strings]
-            if strings
-            else empty_list,
+            "string": ["<br>".join(tr.wrap(string, width=30)) for string in strings] if strings else empty_list,
         }
     )
     chart = px.scatter_3d(

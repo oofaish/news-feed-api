@@ -42,9 +42,7 @@ def get_positive_tags():
     return positive_tags
 
 
-def is_marked_by_tag(
-    article_tags, negative_tags, positive_tags
-) -> tuple[int, Optional[str]]:
+def is_marked_by_tag(article_tags, negative_tags, positive_tags) -> tuple[int, Optional[str]]:
     if article_tags is None:
         return 0, None
 
@@ -65,9 +63,7 @@ def is_marked_by_tag(
     return 0, None
 
 
-def is_marked_title_or_summary(
-    title, summary, negative_tags, positive_tags
-) -> tuple[int, Optional[str]]:
+def is_marked_title_or_summary(title, summary, negative_tags, positive_tags) -> tuple[int, Optional[str]]:
     if summary is None:
         summary = ""
 
@@ -102,13 +98,7 @@ def run_filters(run_on_all_positives=False):
     # load all rows from supabase where agent is null
     client = get_authenticated_client()
     if run_on_all_positives:
-        query = (
-            client.table(ARTICLE_TABLE)
-            .select("*")
-            .neq("agent", "USER")
-            .gte("score", 0)
-            .execute()
-        )
+        query = client.table(ARTICLE_TABLE).select("*").neq("agent", "USER").gte("score", 0).execute()
     else:
         query = client.table(ARTICLE_TABLE).select("*").is_("agent", "null").execute()
     # query = client.table(ARTICLE_TABLE).select("*").eq("id", 30936).execute()
@@ -135,9 +125,7 @@ def run_filters(run_on_all_positives=False):
             updated_rows.append(updates)
             continue
 
-        score, tag = is_marked_title_or_summary(
-            row["title"], row["summary"], negative_tags, positive_tags
-        )
+        score, tag = is_marked_title_or_summary(row["title"], row["summary"], negative_tags, positive_tags)
         if score != 0:
             updates = {
                 "agent": AgentType.TITLE.value,

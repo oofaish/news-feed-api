@@ -90,11 +90,7 @@ def get_short_article_title(article) -> str:
 
 
 def get_short_summary(article) -> str:
-    summary = (
-        remove_whitespace(remove_html(article.summary.strip())).split("|")[0]
-        if article.summary is not None
-        else ""
-    )
+    summary = remove_whitespace(remove_html(article.summary.strip())).split("|")[0] if article.summary is not None else ""
     summary = cut_short(summary, MAX_SIZE)
     return summary
 
@@ -117,13 +113,7 @@ def get_articles_without_embedding_but_with_classifications() -> Optional[pd.Dat
 
     """
     client = get_authenticated_client()
-    user_marked_articles = (
-        client.table(ARTICLE_TABLE)
-        .select("*")
-        .eq("agent", "USER")
-        .is_("embedding", "null")
-        .execute()
-    )
+    user_marked_articles = client.table(ARTICLE_TABLE).select("*").eq("agent", "USER").is_("embedding", "null").execute()
 
     df = pd.DataFrame(user_marked_articles.data)
 
@@ -148,17 +138,13 @@ def prepare_articles_for_embedding(df: pd.DataFrame) -> Optional[pd.DataFrame]:
     return no_na_df
 
 
-def get_embeddings(
-    df: pd.DataFrame, dry_run: bool = True, count: Optional[int] = None
-) -> pd.DataFrame:
+def get_embeddings(df: pd.DataFrame, dry_run: bool = True, count: Optional[int] = None) -> pd.DataFrame:
     """
     hit the OpenAI API to get embeddings for the articles.
     """
     embedding_count = sum(df.embedding.notna())
     if embedding_count > 0:
-        raise ValueError(
-            f"already have {embedding_count} embeddings. Set them to null to recompute."
-        )
+        raise ValueError(f"already have {embedding_count} embeddings. Set them to null to recompute.")
 
     embedding_model = "text-embedding-ada-002"
 
@@ -167,9 +153,7 @@ def get_embeddings(
         df = df.head(count).reset_index()
 
     if not dry_run:
-        df["embedding"] = df.combined.apply(
-            lambda x: get_embedding(x, model=embedding_model)
-        )
+        df["embedding"] = df.combined.apply(lambda x: get_embedding(x, model=embedding_model))
     else:
         logger.info(f"would have gotten embeddings for {len(df)} articles.")
 
@@ -184,9 +168,7 @@ def save_embeddings_to_db(df: pd.DataFrame) -> None:
     logger.info("updating %d embeddings", len(df))
     for index, row in df.iterrows():
         formatted_embedding = embedding_to_db_column(row.embedding)
-        client.table(ARTICLE_TABLE).update({"embedding": formatted_embedding}).eq(
-            "id", row.id
-        ).execute()
+        client.table(ARTICLE_TABLE).update({"embedding": formatted_embedding}).eq("id", row.id).execute()
         logger.info("updated embedding for %s", row.id)
 
     logger.info("done updating embeddings")
@@ -195,15 +177,7 @@ def save_embeddings_to_db(df: pd.DataFrame) -> None:
 def get_recent_articles_with_no_embedding() -> pd.DataFrame:
     client = get_authenticated_client()
     recent = datetime.now(timezone.utc) - timedelta(hours=RECENT_HOURS)
-    recent_no_embedding_articles = (
-        client.table(ARTICLE_TABLE)
-        .select("*")
-        .is_("embedding", "null")
-        .gte("created_at", recent)
-        .order("created_at", desc=True)
-        .limit(MAX_RECENT_ARTICLES)
-        .execute()
-    )
+    recent_no_embedding_articles = client.table(ARTICLE_TABLE).select("*").is_("embedding", "null").gte("created_at", recent).order("created_at", desc=True).limit(MAX_RECENT_ARTICLES).execute()
 
     df = pd.DataFrame(recent_no_embedding_articles.data)
 
@@ -213,15 +187,7 @@ def get_recent_articles_with_no_embedding() -> pd.DataFrame:
 def get_recent_articles_with_embeddings_but_no_ai_score() -> pd.DataFrame:
     client = get_authenticated_client()
     recent = datetime.now(timezone.utc) - timedelta(hours=RECENT_HOURS)
-    to_score = (
-        client.table(ARTICLE_TABLE)
-        .select("*")
-        .not_.is_("embedding", "null")
-        .is_("ai_score", "null")
-        .gte("created_at", recent)
-        .order("created_at", desc=True)
-        .execute()
-    )
+    to_score = client.table(ARTICLE_TABLE).select("*").not_.is_("embedding", "null").is_("ai_score", "null").gte("created_at", recent).order("created_at", desc=True).execute()
 
     df = pd.DataFrame(to_score.data)
     if len(df) > 0:
@@ -255,13 +221,7 @@ def get_articles_for_training() -> pd.DataFrame:
     main entry point to get all the articles that have been classified by user and have embeddings
     """
     client = get_authenticated_client()
-    user_marked_articles = (
-        client.table(ARTICLE_TABLE)
-        .select("*")
-        .eq("agent", "USER")
-        .not_.is_("embedding", "null")
-        .execute()
-    )
+    user_marked_articles = client.table(ARTICLE_TABLE).select("*").eq("agent", "USER").not_.is_("embedding", "null").execute()
 
     df = pd.DataFrame(user_marked_articles.data)
 
@@ -284,9 +244,7 @@ def train_model(df: pd.DataFrame, split: bool = False) -> KNeighborsClassifier:
         shuffle(rs)
         mixed_matrix = [matrix[i] for i in rs]
         mixed_scores = [scores[i] for i in rs]
-        X_train, X_test, y_train, y_test = train_test_split(
-            mixed_matrix, mixed_scores, test_size=0.01
-        )
+        X_train, X_test, y_train, y_test = train_test_split(mixed_matrix, mixed_scores, test_size=0.01)
     else:
         X_test = X_train = matrix
         _ = y_train = scores
@@ -298,9 +256,7 @@ def train_model(df: pd.DataFrame, split: bool = False) -> KNeighborsClassifier:
         logger.info(f"Validation Accuracy: {accuracy:.2f}")
 
         plt.figure()
-        display = PrecisionRecallDisplay.from_estimator(
-            knn, X_test, y_test, name="knn", plot_chance_level=True
-        )
+        display = PrecisionRecallDisplay.from_estimator(knn, X_test, y_test, name="knn", plot_chance_level=True)
 
         display.ax_.set_title("2-class Precision-Recall curve")
 
@@ -308,9 +264,7 @@ def train_model(df: pd.DataFrame, split: bool = False) -> KNeighborsClassifier:
 
         plt.figure()
 
-        display = RocCurveDisplay.from_estimator(
-            knn, X_test, y_test, name="knn", plot_chance_level=True
-        )
+        display = RocCurveDisplay.from_estimator(knn, X_test, y_test, name="knn", plot_chance_level=True)
 
         display.ax_.set_title("2-class ROC curve")
 
@@ -324,9 +278,7 @@ filename = "model.pickle"
 downloaded_filename = "downloaded_model.pickle"
 
 
-def save_model_to_database(
-    model: KNeighborsClassifier, save_to_db: bool = False
-) -> None:
+def save_model_to_database(model: KNeighborsClassifier, save_to_db: bool = False) -> None:
     """
     save the model to the database.
     """
@@ -378,9 +330,7 @@ if __name__ == "__main__":
             while not done:
                 articles = get_articles_without_embedding_but_with_classifications()
                 if articles is not None:
-                    articles_with_embeddings = get_embeddings(
-                        articles, dry_run=False, count=100
-                    )
+                    articles_with_embeddings = get_embeddings(articles, dry_run=False, count=100)
                     save_embeddings_to_db(articles_with_embeddings)
                 else:
                     done = True

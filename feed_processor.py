@@ -24,11 +24,7 @@ from utils import (
 logger = getLogger(__name__)
 
 memory = Memory("cache_directory", verbose=0)
-cache_expiry_seconds = (
-    int(os.environ.get("JOBLIB_CACHE_EXPIRY"))
-    if os.environ.get("JOBLIB_CACHE_EXPIRY")
-    else 0
-)
+cache_expiry_seconds = int(os.environ.get("JOBLIB_CACHE_EXPIRY")) if os.environ.get("JOBLIB_CACHE_EXPIRY") else 0
 
 
 def conditional_decorator(flag, decorator, *args, **kwargs):
@@ -54,10 +50,7 @@ def get_feed(feed_url):
 def process_feed(title: Optional[str], feed):
     for entry in feed.entries:
         # dont bother with articles more than 5 days old
-        if (
-            entry["published_parsed"]
-            > (datetime.datetime.now() - datetime.timedelta(days=5)).timetuple()
-        ):
+        if entry["published_parsed"] > (datetime.datetime.now() - datetime.timedelta(days=5)).timetuple():
             try:
                 yield process(title, entry)
             except Exception:
@@ -66,9 +59,7 @@ def process_feed(title: Optional[str], feed):
 
 def get_all_feed_urls():
     client = get_authenticated_client()
-    active_feeds = (
-        client.table(FEED_TABLE).select("title,url").eq("enabled", True).execute()
-    )
+    active_feeds = client.table(FEED_TABLE).select("title,url").eq("enabled", True).execute()
     feeds = [(row["title"], row["url"]) for row in active_feeds.data]
     return feeds
 
@@ -103,9 +94,7 @@ def save_new_entries(entries: list[dict[str, Any]]):
     for chunk in chunk_list(entries, 50):
         so_far += len(chunk)
         logger.info(f"{so_far}/{len(entries)}")
-        client.table(ARTICLE_TABLE).upsert(
-            chunk, on_conflict="link (DO NOTHING)"
-        ).execute()
+        client.table(ARTICLE_TABLE).upsert(chunk, on_conflict="link (DO NOTHING)").execute()
 
 
 def save_new_tags(tags: list[str]):
@@ -114,9 +103,7 @@ def save_new_tags(tags: list[str]):
     for chunk in chunk_list(tags, 50):
         so_far += len(chunk)
         logger.info(f"{so_far}/{len(tags)}")
-        client.table(TAG_TABLE).upsert(
-            [{"name": x} for x in chunk], on_conflict="name (DO NOTHING)"
-        ).execute()
+        client.table(TAG_TABLE).upsert([{"name": x} for x in chunk], on_conflict="name (DO NOTHING)").execute()
 
 
 def main():
@@ -124,11 +111,7 @@ def main():
     all_tags = list(
         set(
             sum(
-                [
-                    x.get("tags")
-                    for x in all_entries
-                    if "tags" in x and x["tags"] is not None
-                ],
+                [x.get("tags") for x in all_entries if "tags" in x and x["tags"] is not None],
                 [],
             )
         )
