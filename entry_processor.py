@@ -8,11 +8,6 @@ logger = getLogger(__name__)
 
 
 def wsj_and_ft_parser(entry: dict[str, Any]) -> dict[str, Any]:
-    if "wsj_articletype" in entry:
-        tags = [entry["wsj_articletype"]]
-    else:
-        tags = None
-
     link = remove_query_string(entry["link"])
 
     if "ft.com" in link:
@@ -34,7 +29,7 @@ def wsj_and_ft_parser(entry: dict[str, Any]) -> dict[str, Any]:
         "publication": publication,
         "summary": entry.get("summary"),
         "published_at": entry["published"],
-        "tags": tags,
+        "tags": [publication],
     }
 
 
@@ -51,23 +46,70 @@ def guardian_and_nyt_parser(entry: dict[str, Any]) -> dict[str, Any]:
     else:
         raise ValueError(f"Unexpected link {entry['link']}")
 
-    if tags := entry.get("tags"):
-        tags = [x["term"].title() for x in tags]
-
-    if "media_content" in entry and len(entry["media_content"]) and "url" in entry["media_content"][0]:
-        media = entry["media_content"][0]["url"]
-    else:
-        media = None
+    # if "media_content" in entry and len(entry["media_content"]) and "url" in entry["media_content"][0]:
+    #     media = entry["media_content"][0]["url"]
+    # else:
+    media = None
 
     return {
         "title": entry["title"],
         "link": remove_query_string(entry["link"]),
         "publication": publication,
         "summary": summary,
-        "tags": tags,
+        "tags": [publication],
         "published_at": entry["published"],
         "media": media,
         "author": entry.get("author"),
+    }
+
+
+def hnrss_parser(entry: dict[str, Any]) -> dict[str, Any]:
+    summary = None
+    if "summary" in entry:
+        summary = extract_text_from_p_tags(entry["summary"])
+
+    author = None
+    if "author" in entry:
+        author = entry["author"]
+    elif "authors" in entry and entry["authors"]:
+        author = entry["authors"][0].get("name")
+
+    return {
+        "title": entry["title"],
+        "link": entry["comments"],
+        "publication": "Hacker News",
+        "summary": summary,
+        "tags": ["Hacker News"],
+        "published_at": entry["published"],
+        "media": None,
+        "author": author,
+    }
+
+
+def default_parser(entry: dict[str, Any]) -> dict[str, Any]:
+    summary = None
+    if "summary" in entry:
+        summary = extract_text_from_p_tags(entry["summary"])
+
+    author = None
+    if "author" in entry:
+        author = entry["author"]
+    elif "authors" in entry and entry["authors"]:
+        author = entry["authors"][0].get("name")
+
+    publication = None
+    if "source" in entry and "title" in entry["source"]:
+        publication = entry["source"]["title"]
+
+    return {
+        "title": entry["title"],
+        "link": entry["link"],
+        "publication": publication,
+        "summary": summary,
+        "tags": None,
+        "published_at": entry["published"],
+        "media": None,
+        "author": author,
     }
 
 
@@ -88,9 +130,12 @@ def process(title: Optional[str], entry: dict[str, Any]) -> dict[str, Any]:
         result = wsj_and_ft_parser(entry)
     elif "guardian." in entry["link"] or "nytimes.com" in entry["link"]:
         result = guardian_and_nyt_parser(entry)
+    elif "news.ycombinator.com" in entry.get("id", ""):
+        result = hnrss_parser(entry)
     else:
-        raise ValueError(f"Unexpected link {entry['link']}")
+        result = default_parser(entry)
 
-    # TODO add the title to the result
+    if result["tags"] is None:
+        result["tags"] = [title]
 
     return ensure_fields(result)

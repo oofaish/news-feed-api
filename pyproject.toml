@@ -32,6 +32,7 @@ dev = [
 ]
 
 
+
 [tool.ruff]
 target-version = "py311"
 exclude = [
@@ -46,15 +47,17 @@ exclude = [
     "vendor",
     "scripts",
 ]
+line-length = 200
+
+[tool.ruff.lint]
 select = [
     "E",
     "F",
     "W",
     "I001",
 ]
-line-length = 200
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 lines-after-imports = 2
 lines-between-types = 1
 combine-as-imports = true

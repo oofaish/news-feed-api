@@ -27,6 +27,8 @@ def extract_text_from_p_tags(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     p_tags = soup.find_all("p")
     extracted_texts = [p.text for p in p_tags]
+    if len(extracted_texts) == 0:
+        return html
     return ". ".join(extracted_texts)
 
 

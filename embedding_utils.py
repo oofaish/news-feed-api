@@ -1,7 +1,4 @@
-import base64
-import pickle
 import re
-import struct
 
 from datetime import datetime, timedelta, timezone
 from random import shuffle
@@ -15,6 +12,7 @@ from sklearn.metrics import PrecisionRecallDisplay, RocCurveDisplay
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 
+from config import EMBEDDING_MODEL, MAX_RECENT_ARTICLES, MAX_SIZE, MAX_TITLE_SIZE, RECENT_HOURS
 from openai_embedding_utils import get_embedding
 from utils import ARTICLE_TABLE, SetupClient, bad_stuff, get_authenticated_client
 
@@ -27,32 +25,6 @@ from logging import getLogger
 
 
 logger = getLogger(__name__)
-
-MAX_RECENT_ARTICLES = 200
-RECENT_HOURS = 24
-
-MAX_TITLE_SIZE = 1000
-MAX_SIZE = 4000
-
-EMBEDDING_LENGTH = 1536
-
-
-def embedding_to_db_column(embedding: list[float]) -> str:
-    """
-    convert a list of floats to a base64-encoded string so we
-    can store it in a supabase db
-    """
-    serialized_bytes = struct.pack(f"{EMBEDDING_LENGTH}f", *embedding)
-    return base64.b64encode(serialized_bytes).decode("utf-8")
-
-
-def db_column_to_embedding(value: str) -> list[float]:
-    """
-    convert a base64-encoded string to a list of floats
-    """
-    decoded_bytes = base64.b64decode(value.encode("utf-8"))
-    deserialized_array = struct.unpack(f"{EMBEDDING_LENGTH}f", decoded_bytes)
-    return list(deserialized_array)
 
 
 def remove_whitespace(text):
@@ -101,10 +73,10 @@ def get_combined(article) -> Optional[str]:
             return None
     if len(article.summary_short) > 15:
         if article.title_short[:100] == article.summary_short[:100]:
-            return f"title: {article.title_short}"
-        return f"title: {article.title_short}; summary: {article.summary_short}"
+            return f"A news article with title: {article.title_short}"
+        return f"A news article with title: {article.title_short} and summary: {article.summary_short}"
 
-    return f"title: {article.title_short}"
+    return f"A news article with title: {article.title_short}"
 
 
 def get_articles_without_embedding_but_with_classifications() -> Optional[pd.DataFrame]:
@@ -113,7 +85,7 @@ def get_articles_without_embedding_but_with_classifications() -> Optional[pd.Dat
 
     """
     client = get_authenticated_client()
-    user_marked_articles = client.table(ARTICLE_TABLE).select("*").eq("agent", "USER").is_("embedding", "null").execute()
+    user_marked_articles = client.table(ARTICLE_TABLE).select("*").eq("agent", "USER").is_("embedding2", "null").execute()
 
     df = pd.DataFrame(user_marked_articles.data)
 
@@ -146,14 +118,12 @@ def get_embeddings(df: pd.DataFrame, dry_run: bool = True, count: Optional[int] 
     if embedding_count > 0:
         raise ValueError(f"already have {embedding_count} embeddings. Set them to null to recompute.")
 
-    embedding_model = "text-embedding-ada-002"
-
     if count is not None:
         logger.info(f"limiting to {count} instead of {len(df)} articles")
         df = df.head(count).reset_index()
 
     if not dry_run:
-        df["embedding"] = df.combined.apply(lambda x: get_embedding(x, model=embedding_model))
+        df["embedding2"] = df.combined.apply(lambda x: get_embedding(x, model=EMBEDDING_MODEL))
     else:
         logger.info(f"would have gotten embeddings for {len(df)} articles.")
 
@@ -166,9 +136,8 @@ def save_embeddings_to_db(df: pd.DataFrame) -> None:
     """
     client = get_authenticated_client()
     logger.info("updating %d embeddings", len(df))
-    for index, row in df.iterrows():
-        formatted_embedding = embedding_to_db_column(row.embedding)
-        client.table(ARTICLE_TABLE).update({"embedding": formatted_embedding}).eq("id", row.id).execute()
+    for _, row in df.iterrows():
+        client.table(ARTICLE_TABLE).update({"embedding2": row.embedding2}).eq("id", row.id).execute()
         logger.info("updated embedding for %s", row.id)
 
     logger.info("done updating embeddings")
@@ -177,7 +146,7 @@ def save_embeddings_to_db(df: pd.DataFrame) -> None:
 def get_recent_articles_with_no_embedding() -> pd.DataFrame:
     client = get_authenticated_client()
     recent = datetime.now(timezone.utc) - timedelta(hours=RECENT_HOURS)
-    recent_no_embedding_articles = client.table(ARTICLE_TABLE).select("*").is_("embedding", "null").gte("created_at", recent).order("created_at", desc=True).limit(MAX_RECENT_ARTICLES).execute()
+    recent_no_embedding_articles = client.table(ARTICLE_TABLE).select("*").is_("embedding2", "null").gte("created_at", recent).order("created_at", desc=True).limit(MAX_RECENT_ARTICLES).execute()
 
     df = pd.DataFrame(recent_no_embedding_articles.data)
 
@@ -187,11 +156,9 @@ def get_recent_articles_with_no_embedding() -> pd.DataFrame:
 def get_recent_articles_with_embeddings_but_no_ai_score() -> pd.DataFrame:
     client = get_authenticated_client()
     recent = datetime.now(timezone.utc) - timedelta(hours=RECENT_HOURS)
-    to_score = client.table(ARTICLE_TABLE).select("*").not_.is_("embedding", "null").is_("ai_score", "null").gte("created_at", recent).order("created_at", desc=True).execute()
+    to_score = client.table(ARTICLE_TABLE).select("*").not_.is_("embedding2", "null").is_("ai_score", "null").gte("created_at", recent).order("created_at", desc=True).execute()
 
     df = pd.DataFrame(to_score.data)
-    if len(df) > 0:
-        df["embedding"] = df.embedding.apply(db_column_to_embedding)
     return df
 
 
@@ -221,13 +188,9 @@ def get_articles_for_training() -> pd.DataFrame:
     main entry point to get all the articles that have been classified by user and have embeddings
     """
     client = get_authenticated_client()
-    user_marked_articles = client.table(ARTICLE_TABLE).select("*").eq("agent", "USER").not_.is_("embedding", "null").execute()
+    user_marked_articles = client.table(ARTICLE_TABLE).select("*").eq("agent", "USER").not_.is_("embedding2", "null").execute()
 
     df = pd.DataFrame(user_marked_articles.data)
-
-    # convert embeddings to array:
-    df["embedding"] = df.embedding.apply(db_column_to_embedding)
-
     return df
 
 
@@ -273,47 +236,6 @@ def train_model(df: pd.DataFrame, split: bool = False) -> KNeighborsClassifier:
     return knn
 
 
-# pickle is never a good idea :)
-filename = "model.pickle"
-downloaded_filename = "downloaded_model.pickle"
-
-
-def save_model_to_database(model: KNeighborsClassifier, save_to_db: bool = False) -> None:
-    """
-    save the model to the database.
-    """
-    with open(filename, "wb") as f:
-        pickle.dump(model, f)
-    if save_to_db:
-        with open(filename, "rb") as f:
-            client = get_authenticated_client()
-            client.storage.from_("models").upload(
-                file=f,
-                path=filename,
-                file_options={"content-type": "application/octet-stream"},
-            )
-    logger.info("done saving model")
-
-
-def get_model_from_database(local=True) -> Optional[KNeighborsClassifier]:
-    """
-    get the latest model from table sorted by created_at
-    if use is TRUE, return the model
-    if not, return None
-    """
-    if local:
-        with open(filename, "rb") as f:
-            knn = pickle.load(f)
-        return knn
-    client = get_authenticated_client()
-    with open(downloaded_filename, "wb+") as f:
-        res = client.storage.from_("models").download(filename)
-        f.write(res)
-    with open(downloaded_filename, "rb") as f:
-        knn = pickle.load(f)
-    return knn
-
-
 if __name__ == "__main__":
     import logging
 
@@ -334,12 +256,6 @@ if __name__ == "__main__":
                     save_embeddings_to_db(articles_with_embeddings)
                 else:
                     done = True
-
-        if train_and_save_model:
-            df = get_articles_for_training()
-            knn = train_model(df, split=False)
-            save_model_to_database(knn)
-            knn2 = get_model_from_database()
 
         if generate_embeddings:
             df = get_recent_articles_with_no_embedding()
