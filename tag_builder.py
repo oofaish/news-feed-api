@@ -64,9 +64,14 @@ class TaggingAndScoreResult:
 
 def analyze_content(
     article: str,
-    tags: Tags,
-    user_profile: dict,
+    tags: Tags | None = None,
+    user_profile: dict | None = None,
 ) -> TaggingAndScoreResult:
+    if tags is None:
+        tags = get_tags()
+    if user_profile is None:
+        user_profile = load_user_profile()
+
     prompt = f"""
     "You are a news article tagger and interest analyzer. Your task is to assign relevant tags and calculate a predicted interest score based on the provided taxonomy and user preferences.
 
@@ -131,9 +136,6 @@ def analyze_content(
 
 
 if __name__ == "__main__":
-    user_profile = load_user_profile()
-    tags = get_tags()
-
     title = "South Korea deploys K-pop light sticks and dance in protests against president"
     summary = """Christmas carols, K-pop merchandise and food trucks create positive atmosphere as protesters seek to oust President Yoon over his martial law attempt.
     With blasting K-pop, glow sticks, food trucks and obligatory selfies, the protests that have swelled across South Korea since the president’s shock declaration of
@@ -151,7 +153,7 @@ if __name__ == "__main__":
         Summary: {summary}
     """
 
-    result = analyze_content(full_text, tags, user_profile)
+    result = analyze_content(full_text)
 
     print(result)
 

@@ -6,10 +6,10 @@ from embedding_utils import (
     get_embeddings,
     get_model_from_database,
     get_recent_articles_with_embeddings_but_no_ai_score,
-    get_recent_articles_with_no_embedding,
     save_embeddings_to_db,
     score_articles,
 )
+from model_utils import get_recent_articles
 from utils import SetupClient, chunk_list, get_authenticated_client
 
 
@@ -17,9 +17,19 @@ logger = getLogger(__name__)
 
 
 def add_embeddings_to_recent_articles():
-    df = get_recent_articles_with_no_embedding()
+    df = get_recent_articles(["embedding2"])
     if df is not None and len(df):
-        logger.info(f"Found {len(df)} recent articles with no embeddings")
+        logger.info(f"Found {len(df)} recent articles with no embedding")
+        articles_with_embeddings = get_embeddings(df, dry_run=False)
+        save_embeddings_to_db(articles_with_embeddings)
+    else:
+        logger.info("No recent articles with no embeddings")
+
+
+def add_tags_and_ai_scores_to_recent_articles():
+    df = get_recent_articles(["ai_score2"])
+    if df is not None and len(df):
+        logger.info(f"Found {len(df)} recent articles with no ai score")
         articles_with_embeddings = get_embeddings(df, dry_run=False)
         save_embeddings_to_db(articles_with_embeddings)
     else:
@@ -45,6 +55,7 @@ def update_rows(df: pd.DataFrame):
 def main():
     with SetupClient():
         add_embeddings_to_recent_articles()
+        add_tags_and_ai_scores_to_recent_articles()
         df = get_recent_articles_with_embeddings_but_no_ai_score()
         if len(df):
             model = get_model_from_database()
