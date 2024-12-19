@@ -10,3 +10,9 @@ all_tags.csv
 .ruff_cache
 
 *.pickle
+.python-version
+tags.yaml
+user_profile.json
+publications.yaml
+
+config.py

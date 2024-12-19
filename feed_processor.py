@@ -2,19 +2,18 @@ import datetime
 import os
 
 from logging import getLogger
-from typing import Any, Optional
+from typing import Any
 
 import feedparser
+import yaml
 
 from joblib import Memory, expires_after
 
-from config import MAX_AGE_FOR_ARTICLE_FOR_PARSSING
+from config import MAX_AGE_FOR_ARTICLE_FOR_PARSSING, Publication
 from embedding_utils import remove_html
 from entry_processor import process
 from utils import (
     ARTICLE_TABLE,
-    FEED_TABLE,
-    SetupClient,
     bad_stuff,
     chunk_list,
     get_authenticated_client,
@@ -47,36 +46,43 @@ def get_feed(feed_url):
     return feed
 
 
-def process_feed(title: Optional[str], feed):
+def process_feed(publication: Publication, feed: feedparser.FeedParserDict) -> list[dict[str, Any]]:
     for entry in feed.entries:
         # dont bother with articles more than 5 days old
         if entry["published_parsed"] > (datetime.datetime.now() - datetime.timedelta(days=MAX_AGE_FOR_ARTICLE_FOR_PARSSING)).timetuple():
             # try:
-            yield process(title, entry)
+            yield process(publication, entry)
             # except Exception as e:
             #     logger.info(f"Error processing {entry['link']} {e}")
 
 
-def get_all_feed_urls():
-    client = get_authenticated_client()
-    active_feeds = client.table(FEED_TABLE).select("title,url").eq("enabled", True).execute()
-    feeds = [(row["title"], row["url"]) for row in active_feeds.data]
-    return feeds
+def get_all_feed_urls() -> list[tuple[Publication, list[str]]]:
+    # load the yaml file of publications.yaml
+    with open("publications.yaml", "r") as f:
+        publications = yaml.safe_load(f)
+
+    result = [(Publication(p["publication"]), p["urls"]) for p in publications if p["enabled"]]
+
+    return result
+    # client = get_authenticated_client()
+    # active_feeds = client.table(FEED_TABLE).select("title,url").eq("enabled", True).execute()
+    # feeds = [(row["title"], row["url"]) for row in active_feeds.data]
+    # return feeds
 
 
-def process_one_feed(url: str, title: str):
+def process_one_feed(url: str, publication: Publication, seen_links: set[str]):
     feed = get_feed(url)
-    entries = process_feed(title, feed)
+    entries = process_feed(publication, feed)
     all_entries = []
-    seen_links = set()
 
     for entry in entries:
         is_bad = False
         for thing in bad_stuff:
-            # just filter out from title for now as I am dropping
-            # stuff I shouldn't
-            if thing in str(entry["title"]):
-                is_bad = True
+            # # just filter out from title for now as I am dropping
+            # # stuff I shouldn't
+            # if thing in str(entry["title"]):
+            #     is_bad = True
+            is_bad = False
         if not is_bad and entry["link"] not in seen_links:
             seen_links.add(entry["link"])
             try:
@@ -91,9 +97,13 @@ def process_one_feed(url: str, title: str):
 def process_all_feeds():
     all_entries = []
     feed_urls = get_all_feed_urls()
-    for title, feed_url in feed_urls:
-        entries = process_one_feed(feed_url, title)
-        all_entries.extend(entries)
+    publication: Publication
+    seen_entry_urls = set()
+    for publication, feed_urls in feed_urls:
+        for url in feed_urls:
+            entries = process_one_feed(url, publication, seen_entry_urls)
+            print(len(entries), len(seen_entry_urls))
+            all_entries.extend(entries)
 
     return all_entries
 
@@ -113,8 +123,11 @@ def main():
 
 
 if __name__ == "__main__":
-    with SetupClient():
-        # main()
-        # result = process_one_feed("https://hnrss.org/show?points=100&comments=25", "Hacker News")
-        result = process_one_feed("https://feeds.arstechnica.com/arstechnica/index", "Ars Technica")
-        pass
+    # feeds = get_all_feed_urls()
+    main()
+    pass
+    # with SetupClient():
+    #     # main()
+    #     # result = process_one_feed("https://hnrss.org/show?points=100&comments=25", "Hacker News")
+    #     result = process_one_feed("https://feeds.arstechnica.com/arstechnica/index", "Ars Technica")
+    #     pass

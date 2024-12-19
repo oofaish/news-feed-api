@@ -1,6 +1,7 @@
 from logging import getLogger
-from typing import Any, Optional
+from typing import Any
 
+from config import Publication
 from utils import extract_text_from_p_tags, remove_query_string
 
 
@@ -29,7 +30,7 @@ def wsj_and_ft_parser(entry: dict[str, Any]) -> dict[str, Any]:
         "publication": publication,
         "summary": entry.get("summary"),
         "published_at": entry["published"],
-        "tags": [publication],
+        "tags": set(),
     }
 
 
@@ -56,7 +57,7 @@ def guardian_and_nyt_parser(entry: dict[str, Any]) -> dict[str, Any]:
         "link": remove_query_string(entry["link"]),
         "publication": publication,
         "summary": summary,
-        "tags": [publication],
+        "tags": set(),  # [publication],
         "published_at": entry["published"],
         "media": media,
         "author": entry.get("author"),
@@ -79,7 +80,7 @@ def hnrss_parser(entry: dict[str, Any]) -> dict[str, Any]:
         "link": entry["comments"],
         "publication": "Hacker News",
         "summary": summary,
-        "tags": ["Hacker News"],
+        "tags": set(),  # ["Hacker News"],
         "published_at": entry["published"],
         "media": None,
         "author": author,
@@ -106,7 +107,7 @@ def default_parser(entry: dict[str, Any]) -> dict[str, Any]:
         "link": entry["link"],
         "publication": publication,
         "summary": summary,
-        "tags": None,
+        "tags": set(),
         "published_at": entry["published"],
         "media": None,
         "author": author,
@@ -125,7 +126,7 @@ def ensure_fields(entry: dict[str, Any]) -> dict[str, Any]:
     return required_format
 
 
-def process(title: Optional[str], entry: dict[str, Any]) -> dict[str, Any]:
+def process(title: Publication, entry: dict[str, Any]) -> dict[str, Any]:
     if "wsj.com" in entry["link"] or "ft.com" in entry["link"] or "wsj_articletype" in entry:
         result = wsj_and_ft_parser(entry)
     elif "guardian." in entry["link"] or "nytimes.com" in entry["link"]:
@@ -136,6 +137,8 @@ def process(title: Optional[str], entry: dict[str, Any]) -> dict[str, Any]:
         result = default_parser(entry)
 
     if result["tags"] is None:
-        result["tags"] = [title]
+        result["tags"] = {title.value}
+    else:
+        result["tags"].add(title.value)
 
     return ensure_fields(result)
