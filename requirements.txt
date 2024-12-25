@@ -115,6 +115,8 @@ python-dotenv==1.0.1
     # via news-feed-api (pyproject.toml)
 pytz==2024.2
     # via pandas
+pyyaml==6.0.2
+    # via news-feed-api (pyproject.toml)
 realtime==2.0.6
     # via supabase
 regex==2024.11.6
