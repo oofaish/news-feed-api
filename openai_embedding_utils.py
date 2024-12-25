@@ -15,7 +15,7 @@ def get_embedding(text: str, model, **kwargs) -> list[float]:
 
     response = openai.embeddings.create(input=[text], model=model, **kwargs)
 
-    return response.data[0].embedding2
+    return response.data[0].embedding
 
 
 @retry(wait=wait_random_exponential(min=1, max=20), stop=stop_after_attempt(6))

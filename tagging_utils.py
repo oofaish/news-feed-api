@@ -25,9 +25,9 @@ def process_row(row: pd.Series) -> pd.Series:
         row["tags_topic"] = result.topic
         row["tags_mood"] = result.mood
         row["tags_scope"] = result.scope
-        row["score_status"] = "SUCCESS"
+        row["scoring_status"] = "SUCCESS"
     else:
-        row["score_status"] = f"FAILED: {result.error}"
+        row["scoring_status"] = f"FAILED: {result.error}"
     return row
 
 

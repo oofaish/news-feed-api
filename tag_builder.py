@@ -62,6 +62,26 @@ class TaggingAndScoreResult:
     error: str | None = None
 
 
+def parse_answer(response_text: str) -> dict:
+    if not response_text:
+        raise json.JSONDecodeError("Empty input", "", 0)
+    if "```" in response_text:
+        parts = response_text.split("```")
+        if len(parts) >= 3:
+            response_text = parts[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+    cleaned_text = (
+        response_text.strip()  # Remove leading/trailing whitespace
+        .strip("\"'")  # Remove surrounding quotes
+        .encode()
+        .decode("unicode_escape")  # Handle escape characters
+        .replace("'", '"')  # Replace single quotes with double quotes
+        .replace("\n", "")  # Remove newlines
+    )
+    return json.loads(cleaned_text)
+
+
 def analyze_content(
     article: str,
     tags: Tags | None = None,
@@ -125,7 +145,7 @@ def analyze_content(
         return TaggingAndScoreResult(scope=None, topic=None, mood=None, score=None, error=f"LLM Error: {str(e)}")
 
     try:
-        result = json.loads(response_text)
+        result = parse_answer(response_text)
         return TaggingAndScoreResult(scope=result.get("scope", None), topic=result.get("topic", None), mood=result.get("mood", None), score=result.get("score", None))
     except json.JSONDecodeError as e:
         logger.exception("An unexpected error occurred")

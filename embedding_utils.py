@@ -4,7 +4,7 @@ from typing import Optional
 import pandas as pd
 
 from config import EMBEDDING_MODEL
-from model_utils import get_recent_articles, prepare_articles_for_models
+from model_utils import get_recent_articles, prepare_articles_for_models, save_embeddings_to_db
 from openai_embedding_utils import get_embedding
 from utils import ARTICLE_TABLE, SetupClient, get_authenticated_client
 
@@ -43,19 +43,6 @@ def get_embeddings(df: pd.DataFrame, dry_run: bool = True, count: Optional[int] 
         logger.info(f"would have gotten embeddings for {len(df)} articles.")
 
     return df
-
-
-def save_embeddings_to_db(df: pd.DataFrame) -> None:
-    """
-    save the embeddings to the database.
-    """
-    client = get_authenticated_client()
-    logger.info("updating %d embeddings", len(df))
-    for _, row in df.iterrows():
-        client.table(ARTICLE_TABLE).update({"embedding2": row.embedding2}).eq("id", row.id).execute()
-        logger.info("updated embedding for %s", row.id)
-
-    logger.info("done updating embeddings")
 
 
 def get_articles_for_training() -> pd.DataFrame:

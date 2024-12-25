@@ -118,9 +118,9 @@ def get_recent_articles(
         for column in null_columns:
             recent_no_ai_score_articles = recent_no_ai_score_articles.is_(column, "null")
 
-    recent_no_ai_score_articles = recent_no_ai_score_articles.gte("created_at", recent).order("created_at", desc=True).limit(max_recent_articles)
+    recent_no_ai_something_articles = recent_no_ai_score_articles.gte("created_at", recent).order("created_at", desc=True).limit(max_recent_articles).execute()
 
-    df = pd.DataFrame(recent_no_ai_score_articles.data)
+    df = pd.DataFrame(recent_no_ai_something_articles.data)
 
     return prepare_articles_for_models(df)
 
@@ -140,12 +140,12 @@ def save_embeddings_to_db(df: pd.DataFrame) -> None:
 
 def save_tags_and_scores_to_db(df: pd.DataFrame) -> None:
     """
-    save the embeddings to the database.
+    save the tags and scores to the database.
     """
     client = get_authenticated_client()
-    logger.info("updating %d embeddings", len(df))
+    logger.info("updating %d tags and scores", len(df))
     for _, row in df.iterrows():
-        client.table(ARTICLE_TABLE).update({"embedding2": row.embedding2}).eq("id", row.id).execute()
-        logger.info("updated embedding for %s", row.id)
+        client.table(ARTICLE_TABLE).update({"ai_score2": row.ai_score2, "tags_topic": row.tags_topic, "tags_mood": row.tags_mood, "tags_scope": row.tags_scope}).eq("id", row.id).execute()
+        logger.info("updated tags and scores for %s", row.id)
 
-    logger.info("done updating embeddings")
+    logger.info("done updating tags and scores")
