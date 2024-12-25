@@ -82,12 +82,15 @@ multidict==6.1.0
 numpy==2.2.0
     # via
     #   news-feed-api (pyproject.toml)
+    #   pandas
     #   scikit-learn
     #   scipy
 openai==1.57.2
     # via news-feed-api (pyproject.toml)
 packaging==24.2
     # via deprecation
+pandas==2.2.3
+    # via news-feed-api (pyproject.toml)
 postgrest==0.18.0
     # via supabase
 propcache==0.2.1
@@ -105,10 +108,13 @@ pydantic-core==2.27.1
 python-dateutil==2.9.0.post0
     # via
     #   news-feed-api (pyproject.toml)
+    #   pandas
     #   realtime
     #   storage3
 python-dotenv==1.0.1
     # via news-feed-api (pyproject.toml)
+pytz==2024.2
+    # via pandas
 realtime==2.0.6
     # via supabase
 regex==2024.11.6
@@ -153,6 +159,8 @@ typing-extensions==4.12.2
     #   pydantic
     #   pydantic-core
     #   realtime
+tzdata==2024.2
+    # via pandas
 urllib3==2.2.3
     # via requests
 websockets==13.1
