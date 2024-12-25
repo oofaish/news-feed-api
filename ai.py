@@ -1,29 +1,39 @@
+import logging
+
 from logging import getLogger
 
 import pandas as pd
 
 from embedding_utils import (
     get_embeddings,
-    get_model_from_database,
-    get_recent_articles_with_embeddings_but_no_ai_score,
-    get_recent_articles_with_no_embedding,
     save_embeddings_to_db,
-    score_articles,
 )
+from model_utils import get_recent_articles, save_tags_and_scores_to_db
+from tagging_utils import get_tags_and_ai_scores
 from utils import SetupClient, chunk_list, get_authenticated_client
 
 
 logger = getLogger(__name__)
 
 
-def add_embeddings_to_recent_articles():
-    df = get_recent_articles_with_no_embedding()
+def add_embeddings_to_articles(df: pd.DataFrame | None, dry_run: bool = False) -> pd.DataFrame:
     if df is not None and len(df):
-        logger.info(f"Found {len(df)} recent articles with no embeddings")
-        articles_with_embeddings = get_embeddings(df, dry_run=False)
-        save_embeddings_to_db(articles_with_embeddings)
+        logger.info(f"Found {len(df)} recent articles with no embedding")
+        articles_with_embeddings = get_embeddings(df, dry_run=dry_run)
+        return articles_with_embeddings
     else:
         logger.info("No recent articles with no embeddings")
+        return pd.DataFrame()
+
+
+def add_tags_and_ai_scores_to_articles(df: pd.DataFrame | None, dry_run: bool = False) -> pd.DataFrame:
+    if df is not None and len(df):
+        logger.info(f"Found {len(df)} recent articles with no ai score")
+        articles_with_ai_scores = get_tags_and_ai_scores(df, dry_run=dry_run)
+        return articles_with_ai_scores
+    else:
+        logger.info("No recent articles with no ai scores")
+        return pd.DataFrame()
 
 
 def update_rows(df: pd.DataFrame):
@@ -44,17 +54,16 @@ def update_rows(df: pd.DataFrame):
 
 def main():
     with SetupClient():
-        add_embeddings_to_recent_articles()
-        df = get_recent_articles_with_embeddings_but_no_ai_score()
-        if len(df):
-            model = get_model_from_database()
-            scored_articles = score_articles(df, model)
-            logger.info(f"Scored {len(scored_articles)} articles")
-            update_rows(scored_articles)
+        if True:
+            recent_articles = get_recent_articles(["embedding2"])
+            recent_articles_with_embeddings = add_embeddings_to_articles(recent_articles)
+            save_embeddings_to_db(recent_articles_with_embeddings)
 
-        else:
-            logger.info("No articles to score")
+        recent_articles_without_ai_score = get_recent_articles(["ai_score2"])
+        recent_articles_with_ai_score = add_tags_and_ai_scores_to_articles(recent_articles_without_ai_score)
+        save_tags_and_scores_to_db(recent_articles_with_ai_score)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()

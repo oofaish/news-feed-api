@@ -1,3 +1,39 @@
+[project]
+name = "news-feed-api"
+version = "0.2.0"
+description = "RSS Feed API"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "openai>=1.57.2",
+    "python-dotenv>=1.0.1",
+    "feedparser",
+    "python-dateutil",
+    "numpy",
+    "scikit-learn",
+    "tiktoken",
+    "tenacity",
+    "beautifulsoup4",
+    "bs4",
+    "supabase",
+    "pandas",
+    "pyyaml"
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.2",
+    "jupyterlab",
+    "notebook",
+    "matplotlib",
+    "joblib",
+    "black",
+    "pre-commit",
+]
+
+
+
 [tool.ruff]
 target-version = "py311"
 exclude = [
@@ -12,15 +48,17 @@ exclude = [
     "vendor",
     "scripts",
 ]
+line-length = 200
+
+[tool.ruff.lint]
 select = [
     "E",
     "F",
     "W",
     "I001",
 ]
-line-length = 200
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 lines-after-imports = 2
 lines-between-types = 1
 combine-as-imports = true

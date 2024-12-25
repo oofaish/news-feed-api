@@ -17,9 +17,7 @@ bad_stuff = ["&raquo;", "&amp;"]
 
 def remove_query_string(uri):
     parsed_uri = urlparse(uri)
-    return urlunparse(
-        (parsed_uri.scheme, parsed_uri.netloc, parsed_uri.path, None, None, None)
-    )
+    return urlunparse((parsed_uri.scheme, parsed_uri.netloc, parsed_uri.path, None, None, None))
 
 
 def extract_text_from_p_tags(html: str) -> str:
@@ -29,6 +27,8 @@ def extract_text_from_p_tags(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     p_tags = soup.find_all("p")
     extracted_texts = [p.text for p in p_tags]
+    if len(extracted_texts) == 0:
+        return html
     return ". ".join(extracted_texts)
 
 
