@@ -28,7 +28,9 @@ def remove_special_characters(text, remove_digits=False):
     return text
 
 
-def remove_html(text: str):
+def remove_html(text: str | None) -> str:
+    if text is None:
+        return ""
     return BeautifulSoup(text, "html.parser").get_text()
 
 

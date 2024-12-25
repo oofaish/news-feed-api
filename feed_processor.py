@@ -2,7 +2,7 @@ import datetime
 import os
 
 from logging import getLogger
-from typing import Any
+from typing import Any, Iterator
 
 import feedparser
 import yaml
@@ -10,8 +10,8 @@ import yaml
 from joblib import Memory, expires_after
 
 from config import MAX_AGE_FOR_ARTICLE_FOR_PARSSING, Publication
-from embedding_utils import remove_html
 from entry_processor import process
+from model_utils import remove_html
 from utils import (
     ARTICLE_TABLE,
     bad_stuff,
@@ -46,7 +46,7 @@ def get_feed(feed_url):
     return feed
 
 
-def process_feed(publication: Publication, feed: feedparser.FeedParserDict) -> list[dict[str, Any]]:
+def process_feed(publication: Publication, feed: feedparser.FeedParserDict) -> Iterator[dict[str, Any]]:
     for entry in feed.entries:
         # dont bother with articles more than 5 days old
         if entry["published_parsed"] > (datetime.datetime.now() - datetime.timedelta(days=MAX_AGE_FOR_ARTICLE_FOR_PARSSING)).timetuple():
@@ -76,6 +76,9 @@ def process_one_feed(url: str, publication: Publication, seen_links: set[str]):
     all_entries = []
 
     for entry in entries:
+        entry["publication"] = publication.value
+        # convert tags to list
+        entry["tags"] = list(entry["tags"])
         is_bad = False
         for thing in bad_stuff:
             # # just filter out from title for now as I am dropping
@@ -87,8 +90,8 @@ def process_one_feed(url: str, publication: Publication, seen_links: set[str]):
             seen_links.add(entry["link"])
             try:
                 entry["summary"] = remove_html(entry["summary"])
-            except Exception:
-                logger.exception("Failed to remove html from summary")
+            except Exception as e:
+                logger.exception(f"Failed to remove html from summary: {e}")
             all_entries.append(entry)
 
     return all_entries
@@ -96,13 +99,12 @@ def process_one_feed(url: str, publication: Publication, seen_links: set[str]):
 
 def process_all_feeds():
     all_entries = []
-    feed_urls = get_all_feed_urls()
+    all_feed_urls = get_all_feed_urls()
     publication: Publication
     seen_entry_urls = set()
-    for publication, feed_urls in feed_urls:
+    for publication, feed_urls in all_feed_urls:
         for url in feed_urls:
             entries = process_one_feed(url, publication, seen_entry_urls)
-            print(len(entries), len(seen_entry_urls))
             all_entries.extend(entries)
 
     return all_entries

@@ -22,6 +22,8 @@ def process_row(row: pd.Series) -> pd.Series:
     result = analyze_content(row["combined"])
     if result.error is None:
         row["ai_score2"] = result.score
+        if row["agent"] != "USER":
+            row["score"] = result.score
         row["tags_topic"] = result.topic
         row["tags_mood"] = result.mood
         row["tags_scope"] = result.scope
