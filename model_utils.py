@@ -147,7 +147,9 @@ def save_tags_and_scores_to_db(df: pd.DataFrame) -> None:
     client = get_authenticated_client()
     logger.info("updating %d tags and scores", len(df))
     for _, row in df.iterrows():
-        client.table(ARTICLE_TABLE).update({"ai_score2": row.ai_score2, "tags_topic": row.tags_topic, "tags_mood": row.tags_mood, "tags_scope": row.tags_scope}).eq("id", row.id).execute()
+        client.table(ARTICLE_TABLE).update(
+            {"ai_score2": row.ai_score2, "tags_topic": row.tags_topic, "tags_mood": row.tags_mood, "tags_scope": row.tags_scope, "score": row.score, "agent": row.agent}
+        ).eq("id", row.id).execute()
         logger.info("updated tags and scores for %s", row.id)
 
     logger.info("done updating tags and scores")

@@ -24,6 +24,7 @@ def process_row(row: pd.Series) -> pd.Series:
         row["ai_score2"] = result.score
         if row["agent"] != "USER":
             row["score"] = result.score
+            row["agent"] = "AI"
         row["tags_topic"] = result.topic
         row["tags_mood"] = result.mood
         row["tags_scope"] = result.scope
