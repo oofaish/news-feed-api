@@ -93,38 +93,42 @@ def analyze_content(
         user_profile = load_user_profile()
 
     prompt = f"""
-    "You are a news article tagger and interest analyzer. Your task is to assign relevant tags and calculate a predicted interest score based on the provided taxonomy and user preferences.
+    You are a precise content analyzer focused on personalized news filtering. Analyze this article based on the user's interests and preferences.
 
     TAXONOMY: {tags.get_formatted_tags()}
     USER PREFERENCES: {json.dumps(user_profile)}
 
-    ARTICLE DETAILS:
+    ARTICLE:
     {article}
 
-    Please analyze the article and respond in the following JSON format:
-
+    Respond in JSON format:
     {{
-    "scope": ["tag1", "tag2"] or ["UNKNOWN"],
-    "topic": ["tag1", "tag2"] or ["UNKNOWN"],
-    "mood": ["tag1"] or ["UNKNOWN"],
-    "score": n
+        "scope": ["tag1", "tag2"] or ["UNKNOWN"],
+        "topic": ["tag1", "tag2"] or ["UNKNOWN"],
+        "mood": ["tag1"] or ["UNKNOWN"],
+        "score": n
     }}
 
+    Scoring Guidelines:
+    1. Start with a base score of 0
+    2. Add points:
+       - +3 to +5 for matching professional interests
+       - +2 to +4 for matching personal interests
+       - +1 to +2 for preferred content types
+       - +1 for matching tone and depth preferences
+    3. Subtract points:
+       - -3 to -5 for explicitly avoided topics
+       - -2 for avoided content types
+       - -1 for mismatched tone or depth
+    4. Final score must be between -10 and 10
+
     Rules:
-        1. Each dimension can have up to 2 tags (except mood, which should have exactly 1)
-        2. Use 'unknown' as an array value if you cannot determine tags for a dimension
-        3. Tags must exactly match the taxonomy provided
-        4. Return the tags in the order most relevant to least relevant for the article
-        4. Use the the description provided for each tag to help you make your decision
-        5. Consider both article content and user preferences in tagging
-        6. Provide an interest score between -10 and 10 where:
-            10: Extremely relevant to user interests and preferences
-            5: Moderately interesting based on user profile
-            0: Neutral relevance
-            -5: Likely not of interest
-            -10: Strongly misaligned with user interests
-        8. You can use all integers between -10 to 10 for the interest score
-        7. Provide no explanation or additional text - only the JSON response
+    1. Each dimension can have up to 2 tags (except mood: exactly 1)
+    2. Use 'UNKNOWN' if tags cannot be determined
+    3. Tags must exactly match the provided taxonomy
+    4. Order tags by relevance
+    5. Provide no explanation - only JSON response
+    6. Be especially strict about negative scoring for sports content
     """
 
     try:
