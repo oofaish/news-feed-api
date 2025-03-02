@@ -112,9 +112,9 @@ def analyze_content(
     Scoring Guidelines:
     1. Start with a base score of 0
     2. Add points:
-       - +3 to +5 for matching professional interests
-       - +2 to +4 for matching personal interests
+       - +3 to +4 for matching personal interests
        - +1 to +2 for preferred content types
+       - +1 to +2 for matching professional interests
        - +1 for matching tone and depth preferences
     3. Subtract points:
        - -3 to -5 for explicitly avoided topics
@@ -123,12 +123,13 @@ def analyze_content(
     4. Final score must be between -10 and 10
 
     Rules:
-    1. Each dimension can have up to 2 tags (except mood: exactly 1)
-    2. Use 'UNKNOWN' if tags cannot be determined
-    3. Tags must exactly match the provided taxonomy
-    4. Order tags by relevance
-    5. Provide no explanation - only JSON response
-    6. Be especially strict about negative scoring for sports content
+    1. Each dimension can have up to 2 tags (except mood: exactly 1).
+    2. Only allocate a tag if the relevance is high. Preference is to have UNKNOWN tag or just 1 tag rather than a tag with low relevance.
+    3. Use 'UNKNOWN' if tags cannot be determined
+    4. Tags must exactly match the provided taxonomy
+    5. Order tags by relevance
+    6. Provide no explanation - only JSON response
+    7. Be especially strict about negative scoring for sports content
     """
 
     try:
