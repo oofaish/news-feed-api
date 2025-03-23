@@ -168,6 +168,36 @@ def process_all_feeds():
     return all_entries
 
 
+def save_new_entries_hacker_rank(entries: list[dict[str, Any]]):
+    if not entries:
+        logger.info("No Hacker News entries to save")
+        return
+
+    logger.info(f"Saving {len(entries)} Hacker News entries to database with Summary and title updates")
+    client = get_authenticated_client()
+    so_far = 0
+    chunk_count = 0
+    total_chunks = len(list(chunk_list(entries, 50)))
+
+    try:
+        for chunk in chunk_list(entries, 50):
+            chunk_count += 1
+            chunk_size = len(chunk)
+            so_far += chunk_size
+            logger.info(f"Saving Hacker News chunk {chunk_count}/{total_chunks}: {so_far}/{len(entries)} entries")
+
+            try:
+                # Update Summary and title on conflict, leave other columns as is
+                client.table(ARTICLE_TABLE).upsert(chunk, on_conflict="link", merge=["summary", "title"]).execute()
+                logger.info(f"Successfully saved Hacker News chunk {chunk_count}: {chunk_size} entries")
+            except Exception as e:
+                logger.error(f"Failed to save Hacker News chunk {chunk_count}: {e}")
+
+        logger.info(f"Completed saving {so_far} Hacker News entries to database")
+    except Exception as e:
+        logger.error(f"Error during Hacker News save operation: {e}")
+
+
 def save_new_entries(entries: list[dict[str, Any]]):
     if not entries:
         logger.info("No new entries to save")
@@ -206,8 +236,18 @@ def main():
 
         logger.info(f"Feed processing completed in {processing_time.total_seconds():.2f} seconds, found {len(all_entries)} entries")
 
+        # Filter entries by publication
+        hacker_news_entries = [entry for entry in all_entries if entry.get("publication") == Publication.HackerNews.value]
+        other_entries = [entry for entry in all_entries if entry.get("publication") != Publication.HackerNews.value]
+
+        logger.info(f"Filtered {len(hacker_news_entries)} Hacker News entries and {len(other_entries)} other entries")
+
         save_start_time = datetime.datetime.now()
-        save_new_entries(all_entries)
+
+        # Call the appropriate save function based on publication
+        save_new_entries_hacker_rank(hacker_news_entries)
+        save_new_entries(other_entries)
+
         save_time = datetime.datetime.now() - save_start_time
 
         logger.info(f"Saving entries completed in {save_time.total_seconds():.2f} seconds")
