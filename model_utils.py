@@ -44,68 +44,133 @@ def cut_short(text: str, size) -> str:
 
 
 def get_short_article_title(article) -> str:
-    title = remove_whitespace(remove_html(article.title.strip())).split("|")[0].strip()
+    try:
+        original_title = article.title.strip() if article.title else ""
+        title = remove_whitespace(remove_html(original_title)).split("|")[0].strip()
+        title = cut_short(title, MAX_TITLE_SIZE)
 
-    title = cut_short(title, MAX_TITLE_SIZE)
-    return title
+        if len(title) < len(original_title):
+            logger.debug(f"Title shortened from {len(original_title)} to {len(title)} chars")
+
+        return title
+    except Exception as e:
+        logger.exception(f"Error processing article title: {e}")
+        return "Error processing title"
 
 
 def get_short_summary(article) -> str:
-    summary = remove_whitespace(remove_html(article.summary.strip())).split("|")[0] if article.summary is not None else ""
-    summary = cut_short(summary, MAX_SIZE)
-    return summary
+    try:
+        if article.summary is None:
+            logger.debug("Article has no summary")
+            return ""
+
+        original_summary = article.summary.strip()
+        summary = remove_whitespace(remove_html(original_summary)).split("|")[0]
+        summary = cut_short(summary, MAX_SIZE)
+
+        if len(summary) < len(original_summary):
+            logger.debug(f"Summary shortened from {len(original_summary)} to {len(summary)} chars")
+
+        return summary
+    except Exception as e:
+        logger.exception(f"Error processing article summary: {e}")
+        return "Error processing summary"
 
 
 def get_combined(article, use_short: bool = False) -> str | None:
-    for thing in bad_stuff:
-        if thing in str(article.title_short) or thing in str(article.summary_short):
-            logger.info(f"Used to skip article with bad stuff in title or summary {article['title_short']}")
+    article_id = getattr(article, "id", "unknown")
+    logger.debug(f"Combining text for article ID: {article_id}")
 
-    if use_short:
-        title = article.title_short
-        summary = article.summary_short
-    else:
-        title = article.title
-        summary = article.summary
+    try:
+        # Check for bad content
+        for thing in bad_stuff:
+            if thing in str(article.title_short) or thing in str(article.summary_short):
+                logger.info(f"Article with potentially problematic content in title/summary: {article.get('title_short', 'unknown')}")
 
-    publication = article.publication
+        # Select appropriate fields based on use_short flag
+        if use_short:
+            title = article.title_short
+            summary = article.summary_short
+            logger.debug("Using shortened title and summary")
+        else:
+            title = article.title
+            summary = article.summary
+            logger.debug("Using full title and summary")
 
-    if summary == title:
-        full_text = f"""
-            News article from {publication}
-            Title: {title}
-        """
-    else:
-        full_text = f"""
-            News article from {publication}
-            Title: {title}
-            Summary: {summary}
-        """
-    # put the author if it's not null
-    if article.author is not None:
-        full_text += f"""
-            Author: {article.author}
-        """
+        publication = article.publication
+        logger.debug(f"Combining text for article from {publication}")
 
-    return full_text.strip()
+        # Build the combined text
+        if summary == title:
+            logger.debug("Summary matches title, using simplified format")
+            full_text = f"""
+                News article from {publication}
+                Title: {title}
+            """
+        else:
+            full_text = f"""
+                News article from {publication}
+                Title: {title}
+                Summary: {summary}
+            """
+
+        # Add author if available
+        if article.author is not None:
+            logger.debug(f"Adding author: {article.author}")
+            full_text += f"""
+                Author: {article.author}
+            """
+
+        combined_text = full_text.strip()
+        logger.debug(f"Combined text created, length: {len(combined_text)} chars")
+        return combined_text
+    except Exception as e:
+        logger.exception(f"Error combining text for article {article_id}: {e}")
+        return None
 
 
 def prepare_articles_for_models(df: pd.DataFrame) -> pd.DataFrame | None:
     if len(df) == 0:
-        logger.info("no articles found")
+        logger.info("No articles found to prepare for models")
         return None
 
-    df["title_short"] = df.apply(get_short_article_title, axis=1)
-    df["summary_short"] = df.apply(get_short_summary, axis=1)
-    df["combined"] = df.apply(get_combined, axis=1)
+    logger.info(f"Preparing {len(df)} articles for models")
 
-    no_na_df = df[df["combined"].notna()]
+    try:
+        # Process titles
+        logger.debug("Processing article titles")
+        start_time = pd.Timestamp.now()
+        df["title_short"] = df.apply(get_short_article_title, axis=1)
+        logger.debug(f"Processed titles in {(pd.Timestamp.now() - start_time).total_seconds():.2f} seconds")
 
-    if len(no_na_df) == 0:
-        logger.info("no good articles found")
+        # Process summaries
+        logger.debug("Processing article summaries")
+        start_time = pd.Timestamp.now()
+        df["summary_short"] = df.apply(get_short_summary, axis=1)
+        logger.debug(f"Processed summaries in {(pd.Timestamp.now() - start_time).total_seconds():.2f} seconds")
+
+        # Combine text
+        logger.debug("Combining article text")
+        start_time = pd.Timestamp.now()
+        df["combined"] = df.apply(get_combined, axis=1)
+        logger.debug(f"Combined text in {(pd.Timestamp.now() - start_time).total_seconds():.2f} seconds")
+
+        # Filter out articles with no combined text
+        no_na_df = df[df["combined"].notna()]
+        filtered_count = len(df) - len(no_na_df)
+
+        if filtered_count > 0:
+            logger.info(f"Filtered out {filtered_count} articles with no combined text")
+
+        if len(no_na_df) == 0:
+            logger.warning("No valid articles found after filtering")
+            return None
+
+        logger.info(f"Successfully prepared {len(no_na_df)} articles for models")
+        return no_na_df
+    except Exception as e:
+        logger.exception(f"Error preparing articles for models: {e}")
         return None
-
-    return no_na_df
 
 
 def get_recent_articles(
@@ -113,43 +178,106 @@ def get_recent_articles(
     recent_hours: int = RECENT_HOURS,
     max_recent_articles: int = MAX_RECENT_ARTICLES,
 ) -> pd.DataFrame:
-    client = get_authenticated_client()
-    recent = datetime.now(timezone.utc) - timedelta(hours=recent_hours)
-    recent_no_ai_score_articles = client.table(ARTICLE_TABLE).select("*")
-    if null_columns is not None:
-        for column in null_columns:
-            recent_no_ai_score_articles = recent_no_ai_score_articles.is_(column, "null")
+    logger.info(f"Retrieving recent articles from the last {recent_hours} hours, limit: {max_recent_articles}")
 
-    recent_no_ai_something_articles = recent_no_ai_score_articles.gte("created_at", recent).order("created_at", desc=True).limit(max_recent_articles).execute()
+    try:
+        client = get_authenticated_client()
+        recent = datetime.now(timezone.utc) - timedelta(hours=recent_hours)
 
-    df = pd.DataFrame(recent_no_ai_something_articles.data)
+        # Build query
+        recent_articles_query = client.table(ARTICLE_TABLE).select("*")
 
-    return prepare_articles_for_models(df)
+        # Add null column filters if specified
+        if null_columns is not None:
+            logger.info(f"Filtering for articles with NULL values in columns: {', '.join(null_columns)}")
+            for column in null_columns:
+                recent_articles_query = recent_articles_query.is_(column, "null")
+
+        # Execute query with time filter, ordering, and limit
+        start_time = datetime.now(timezone.utc)
+        query_result = recent_articles_query.gte("created_at", recent).order("created_at", desc=True).limit(max_recent_articles).execute()
+        query_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+
+        # Process results
+        article_count = len(query_result.data)
+        logger.info(f"Retrieved {article_count} articles in {query_time:.2f} seconds")
+
+        if article_count == 0:
+            logger.info("No articles found matching the criteria")
+            return pd.DataFrame()
+
+        # Convert to DataFrame and prepare for models
+        df = pd.DataFrame(query_result.data)
+        return prepare_articles_for_models(df)
+    except Exception as e:
+        logger.exception(f"Error retrieving recent articles: {e}")
+        return pd.DataFrame()
 
 
 def save_embeddings_to_db(df: pd.DataFrame) -> None:
     """
     save the embeddings to the database.
     """
-    client = get_authenticated_client()
-    logger.info("updating %d embeddings", len(df))
-    for _, row in df.iterrows():
-        client.table(ARTICLE_TABLE).update({"embedding2": row.embedding2}).eq("id", row.id).execute()
-        logger.info("updated embedding for %s", row.id)
+    if df.empty:
+        logger.info("No embeddings to save to database")
+        return
 
-    logger.info("done updating embeddings")
+    article_count = len(df)
+    logger.info(f"Saving {article_count} embeddings to database")
+
+    try:
+        client = get_authenticated_client()
+        start_time = pd.Timestamp.now()
+        success_count = 0
+        error_count = 0
+
+        for i, (_, row) in enumerate(df.iterrows(), 1):
+            try:
+                client.table(ARTICLE_TABLE).update({"embedding2": row.embedding2}).eq("id", row.id).execute()
+                success_count += 1
+                if i % 10 == 0 or i == article_count:
+                    logger.info(f"Progress: {i}/{article_count} embeddings saved ({(i/article_count)*100:.1f}%)")
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error saving embedding for article {row.id}: {e}")
+
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logger.info(f"Completed saving {success_count}/{article_count} embeddings in {duration:.2f} seconds, {error_count} errors")
+    except Exception as e:
+        logger.exception(f"Error in save_embeddings_to_db: {e}")
 
 
 def save_tags_and_scores_to_db(df: pd.DataFrame) -> None:
     """
     save the tags and scores to the database.
     """
-    client = get_authenticated_client()
-    logger.info("updating %d tags and scores", len(df))
-    for _, row in df.iterrows():
-        client.table(ARTICLE_TABLE).update(
-            {"ai_score2": row.ai_score2, "tags_topic": row.tags_topic, "tags_mood": row.tags_mood, "tags_scope": row.tags_scope, "score": row.score, "agent": row.agent}
-        ).eq("id", row.id).execute()
-        logger.info("updated tags and scores for %s", row.id)
+    if df.empty:
+        logger.info("No tags and scores to save to database")
+        return
 
-    logger.info("done updating tags and scores")
+    article_count = len(df)
+    logger.info(f"Saving tags and scores for {article_count} articles to database")
+
+    try:
+        client = get_authenticated_client()
+        start_time = pd.Timestamp.now()
+        success_count = 0
+        error_count = 0
+
+        for i, (_, row) in enumerate(df.iterrows(), 1):
+            try:
+                update_data = {"ai_score2": row.ai_score2, "tags_topic": row.tags_topic, "tags_mood": row.tags_mood, "tags_scope": row.tags_scope, "score": row.score, "agent": row.agent}
+
+                client.table(ARTICLE_TABLE).update(update_data).eq("id", row.id).execute()
+                success_count += 1
+
+                if i % 10 == 0 or i == article_count:
+                    logger.info(f"Progress: {i}/{article_count} articles updated with tags and scores ({(i/article_count)*100:.1f}%)")
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error saving tags and scores for article {row.id}: {e}")
+
+        duration = (pd.Timestamp.now() - start_time).total_seconds()
+        logger.info(f"Completed saving tags and scores for {success_count}/{article_count} articles in {duration:.2f} seconds, {error_count} errors")
+    except Exception as e:
+        logger.exception(f"Error in save_tags_and_scores_to_db: {e}")
